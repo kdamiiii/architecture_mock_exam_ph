@@ -1,6 +1,5 @@
 SOURCES = [
-  { id: "jpt", name: "JPT Learning Center", items: 1240 },
-  { id: "ucj", name: "UC Jaguars Mock Exam", items: 860 },
+  { id: "toplab", name: "Toplab Review Center", items: 54 },
 ];
 
 CATEGORIES = [

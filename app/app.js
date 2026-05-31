@@ -9,7 +9,7 @@
   var SESSION_LEN = 45;          // comprehensive mock = 3 pages of 15
   var TIMED_SECONDS = 45 * 60;   // 45:00
   var PASS_PCT = 70;
-  var LETTERS = ["A", "B", "C", "D"];
+  var LETTERS = ["A", "B", "C", "D", "E"];
 
   var K = { scores: "abr_scores", session: "abr_session", name: "abr_name" };
 
@@ -42,7 +42,7 @@
   /* ------------------------------ state -------------------------------- */
   var state = {
     route: "dashboard",
-    build: { source: "jpt", category: "struct", mode: "normal" },
+    build: { source: "toplab", category: "struct", mode: "normal" },
     resultsPage: 0
   };
   var timerHandle = null;
@@ -484,7 +484,7 @@
     }
     if (act === "retake") {
       var rs = getSession();
-      startSession(state.build.source || "jpt", (rs && rs.category.id) || state.build.category, (rs && rs.mode.id) || state.build.mode);
+      startSession(state.build.source || "toplab", (rs && rs.category.id) || state.build.category, (rs && rs.mode.id) || state.build.mode);
       return;
     }
     if (act === "drill") {
@@ -500,7 +500,7 @@
       return;
     }
     if (act === "clearScores") { if (confirm("Clear all score history?")) { save(K.scores, []); go("dashboard"); } return; }
-    if (act === "clearAll") { if (confirm("Reset everything \u2014 scores, current session, and name?")) { del(K.scores); del(K.session); del(K.name); state.build = { source: "jpt", category: "struct", mode: "normal" }; go("dashboard"); } return; }
+    if (act === "clearAll") { if (confirm("Reset everything \u2014 scores, current session, and name?")) { del(K.scores); del(K.session); del(K.name); state.build = { source: "toplab", category: "struct", mode: "normal" }; go("dashboard"); } return; }
   });
 
   function go(route) { state.route = route; location.hash = "#/" + route; render(); }
