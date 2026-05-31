@@ -7,7 +7,12 @@
   /* ----------------------------- constants ----------------------------- */
   var PER_PAGE = 15;
   var SESSION_LEN = 45;          // comprehensive mock = 3 pages of 15
-  var TIMED_SECONDS = 45 * 60;   // 45:00
+  var TIMED_OPTIONS = [
+    { id: "30", label: "30 min", seconds: 30 * 60 },
+    { id: "45", label: "45 min", seconds: 45 * 60 },
+    { id: "60", label: "1 hour", seconds: 60 * 60 },
+    { id: "90", label: "1:30",   seconds: 90 * 60 },
+  ];
   var PASS_PCT = 70;
   var LETTERS = ["A", "B", "C", "D", "E"];
 
@@ -42,7 +47,7 @@
   /* ------------------------------ state -------------------------------- */
   var state = {
     route: "dashboard",
-    build: { source: "toplab", category: "struct", mode: "normal" },
+    build: { source: "toplab", category: "struct", mode: "normal", timedDuration: "45" },
     resultsPage: 0
   };
   var timerHandle = null;
@@ -64,7 +69,7 @@
       category: { id: catId, name: catById(catId).name },
       mode: { id: modeId, name: modeById(modeId).name },
       qIds: ids, answers: {}, revealed: {}, page: 0,
-      startTime: Date.now(), durationSec: modeId === "timed" ? TIMED_SECONDS : null,
+      startTime: Date.now(), durationSec: modeId === "timed" ? (function () { for (var i = 0; i < TIMED_OPTIONS.length; i++) if (TIMED_OPTIONS[i].id === state.build.timedDuration) return TIMED_OPTIONS[i].seconds; return TIMED_OPTIONS[1].seconds; })() : null,
       finished: false
     };
     save(K.session, sess);
@@ -213,7 +218,11 @@
             '<div class="build-step"><div class="step-head"><span class="num">I</span><span class="klabel">Source</span></div><div class="tile-row c2">' + sources + '</div></div>' +
             '<div class="build-step"><div class="step-head"><span class="num">II</span><span class="klabel">Category &middot; focus</span></div><div class="chips">' + cats + '</div></div>' +
             '<div class="build-step"><div class="step-head"><span class="num">III</span><span class="klabel">Mode</span></div><div class="tile-row c3">' + modes + '</div>' +
-              '<div class="mode-blurb">' + esc(mode.blurb) + '</div></div>' +
+              '<div class="mode-blurb">' + esc(mode.blurb) + '</div>' +
+              (b.mode === "timed" ? '<div class="timer-pick"><div class="klabel" style="margin-bottom:8px;">Duration</div><div class="chips">' +
+                TIMED_OPTIONS.map(function (t) {
+                  return '<button class="chip' + (b.timedDuration === t.id ? " on" : "") + '" data-action="pick" data-field="timedDuration" data-val="' + t.id + '">' + t.label + '</button>';
+                }).join("") + '</div></div>' : '') + '</div>' +
             '<button class="btn btn-primary btn-block" data-action="launch" style="margin-top:22px;">Begin Review &middot; ' + SESSION_LEN + ' items <span class="arr">&rarr;</span></button>' +
           '</div></div>' +
           '<div class="panel"><div class="panel-head"><div class="ph-t">Recent Scores</div><div class="klabel">Top 10</div></div>' +
@@ -500,7 +509,7 @@
       return;
     }
     if (act === "clearScores") { if (confirm("Clear all score history?")) { save(K.scores, []); go("dashboard"); } return; }
-    if (act === "clearAll") { if (confirm("Reset everything \u2014 scores, current session, and name?")) { del(K.scores); del(K.session); del(K.name); state.build = { source: "toplab", category: "struct", mode: "normal" }; go("dashboard"); } return; }
+    if (act === "clearAll") { if (confirm("Reset everything \u2014 scores, current session, and name?")) { del(K.scores); del(K.session); del(K.name); state.build = { source: "toplab", category: "struct", mode: "normal", timedDuration: "45" }; go("dashboard"); } return; }
   });
 
   function go(route) { state.route = route; location.hash = "#/" + route; render(); }
