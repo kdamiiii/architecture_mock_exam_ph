@@ -6,7 +6,11 @@
 
   /* ----------------------------- constants ----------------------------- */
   var PER_PAGE = 15;
-  var SESSION_LEN = 45;          // comprehensive mock = 3 pages of 15
+  function sessionLen() {
+    var sq = QUESTIONS[state.build.source] || {};
+    var qs = sq[state.build.category] || [];
+    return qs.length;
+  }
   var TIMED_OPTIONS = [
     { id: "30", label: "30 min", seconds: 30 * 60 },
     { id: "45", label: "45 min", seconds: 45 * 60 },
@@ -57,13 +61,8 @@
   /* ------------------------- session lifecycle ------------------------- */
   function startSession(sourceId, catId, modeId) {
     buildQuestionBank(sourceId);
-    var ids = shuffle(QUESTION_BANK.map(function (q) { return q.id; }));
-    // Put the focus category first so the picked category leads the mock.
-    ids.sort(function (a, b) {
-      var fa = qById(a).cat === catId ? 0 : 1, fb = qById(b).cat === catId ? 0 : 1;
-      return fa - fb;
-    });
-    ids = ids.slice(0, SESSION_LEN);
+    var catQuestions = QUESTION_BANK.filter(function (q) { return q.cat === catId; });
+    var ids = shuffle(catQuestions.map(function (q) { return q.id; }));
     var sess = {
       source: { id: sourceId, name: (function () { for (var i = 0; i < SOURCES.length; i++) if (SOURCES[i].id === sourceId) return SOURCES[i].name; return sourceId; })() },
       category: { id: catId, name: catById(catId).name },
@@ -225,7 +224,7 @@
                 TIMED_OPTIONS.map(function (t) {
                   return '<button class="chip' + (b.timedDuration === t.id ? " on" : "") + '" data-action="pick" data-field="timedDuration" data-val="' + t.id + '">' + t.label + '</button>';
                 }).join("") + '</div></div>' : '') + '</div>' +
-            '<button class="btn btn-primary btn-block" data-action="launch" style="margin-top:22px;">Begin Review &middot; ' + SESSION_LEN + ' items <span class="arr">&rarr;</span></button>' +
+            '<button class="btn btn-primary btn-block" data-action="launch" style="margin-top:22px;">Begin Review &middot; ' + sessionLen() + ' items <span class="arr">&rarr;</span></button>' +
           '</div></div>' +
           '<div class="panel"><div class="panel-head"><div class="ph-t">Recent Scores</div><div class="klabel">Top 10</div></div>' +
             '<div class="panel-body sc-list">' + scoreList + '</div></div>' +
