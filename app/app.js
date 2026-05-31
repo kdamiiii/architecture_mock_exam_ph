@@ -189,7 +189,9 @@
         '<span class="t-name">' + esc(s.name) + '</span><span class="t-sub">' + s.items.toLocaleString() + ' items</span></button>';
     }).join("");
 
-    var cats = CATEGORIES.map(function (c) {
+    var srcQuestions = QUESTIONS[b.source] || {};
+    var availCats = CATEGORIES.filter(function (c) { return srcQuestions[c.id] && srcQuestions[c.id].length; });
+    var cats = availCats.map(function (c) {
       return '<button class="chip' + (b.category === c.id ? " on" : "") + '" data-action="pick" data-field="category" data-val="' + c.id + '">' + esc(c.name) + '</button>';
     }).join("");
 
@@ -459,7 +461,16 @@
 
     if (act === "nav") { go(t.getAttribute("data-route")); return; }
     if (act === "pick") {
-      state.build[t.getAttribute("data-field")] = t.getAttribute("data-val");
+      var field = t.getAttribute("data-field");
+      state.build[field] = t.getAttribute("data-val");
+      if (field === "source") {
+        var sq = QUESTIONS[state.build.source] || {};
+        if (!sq[state.build.category] || !sq[state.build.category].length) {
+          for (var ci = 0; ci < CATEGORIES.length; ci++) {
+            if (sq[CATEGORIES[ci].id] && sq[CATEGORIES[ci].id].length) { state.build.category = CATEGORIES[ci].id; break; }
+          }
+        }
+      }
       render(); return;
     }
     if (act === "launch") { startSession(state.build.source, state.build.category, state.build.mode); return; }
