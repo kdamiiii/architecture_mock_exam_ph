@@ -11,7 +11,23 @@
   var PASS_PCT = 70;
   var LETTERS = ["A", "B", "C", "D"];
 
-  var K = { scores: "abr_scores", session: "abr_session", name: "abr_name", seeded: "abr_seeded" };
+  var K = { scores: "abr_scores", session: "abr_session", name: "abr_name" };
+
+  /* ----------------------------- data loading ----------------------------- */
+  var QUESTION_BANK = [];
+  var loadedSource = null;
+
+  function buildQuestionBank(sourceId) {
+    if (loadedSource === sourceId && QUESTION_BANK.length) return;
+    QUESTION_BANK = [];
+    var srcData = QUESTIONS[sourceId] || {};
+    CATEGORIES.forEach(function (cat) {
+      var qs = srcData[cat.id] || [];
+      qs.forEach(function (q) { q.cat = cat.id; });
+      QUESTION_BANK = QUESTION_BANK.concat(qs);
+    });
+    loadedSource = sourceId;
+  }
 
   /* ----------------------------- storage ------------------------------- */
   function load(key, fb) { try { var v = localStorage.getItem(key); return v == null ? fb : JSON.parse(v); } catch (e) { return fb; } }
@@ -22,32 +38,6 @@
   function catById(id) { for (var i = 0; i < CATEGORIES.length; i++) if (CATEGORIES[i].id === id) return CATEGORIES[i]; return { name: id, short: id }; }
   function modeById(id) { for (var i = 0; i < MODES.length; i++) if (MODES[i].id === id) return MODES[i]; return MODES[0]; }
   function qById(id) { for (var i = 0; i < QUESTION_BANK.length; i++) if (QUESTION_BANK[i].id === id) return QUESTION_BANK[i]; return null; }
-
-  /* --------------------------- seed sample data ------------------------ */
-  function seedScores() {
-    if (load(K.seeded, false)) return;
-    var now = Date.now(), DAY = 86400000;
-    var seed = [
-      { source: "JPT Learning Center", category: "struct", mode: "rw",     correct: 41, wrong: 4, total: 45, days: 1 },
-      { source: "JPT Learning Center", category: "hist",   mode: "normal", correct: 40, wrong: 5, total: 45, days: 3 },
-      { source: "UC Jaguars Mock Exam", category: "prac",  mode: "timed",  correct: 38, wrong: 7, total: 45, days: 4 },
-      { source: "JPT Learning Center", category: "util",   mode: "normal", correct: 37, wrong: 8, total: 45, days: 6 },
-      { source: "UC Jaguars Mock Exam", category: "design", mode: "rw",    correct: 35, wrong: 10, total: 45, days: 9 },
-      { source: "JPT Learning Center", category: "mats",   mode: "normal", correct: 34, wrong: 11, total: 45, days: 12 },
-      { source: "UC Jaguars Mock Exam", category: "struct", mode: "timed", correct: 31, wrong: 14, total: 45, days: 16 }
-    ];
-    var out = seed.map(function (s, i) {
-      var blank = s.total - s.correct - s.wrong;
-      return {
-        id: "seed-" + i, source: s.source, category: s.category, categoryName: catById(s.category).name,
-        mode: s.mode, modeName: modeById(s.mode).name, correct: s.correct, wrong: s.wrong, blank: blank,
-        total: s.total, net: s.correct - s.wrong, pct: Math.round((s.correct / s.total) * 100),
-        date: now - s.days * DAY
-      };
-    });
-    save(K.scores, out);
-    save(K.seeded, true);
-  }
 
   /* ------------------------------ state -------------------------------- */
   var state = {
@@ -61,6 +51,7 @@
 
   /* ------------------------- session lifecycle ------------------------- */
   function startSession(sourceId, catId, modeId) {
+    buildQuestionBank(sourceId);
     var ids = shuffle(QUESTION_BANK.map(function (q) { return q.id; }));
     // Put the focus category first so the picked category leads the mock.
     ids.sort(function (a, b) {
@@ -508,8 +499,8 @@
       var f = document.getElementById("nameFlash"); if (f) { f.classList.add("show"); setTimeout(function () { f.classList.remove("show"); }, 1600); }
       return;
     }
-    if (act === "clearScores") { if (confirm("Clear all score history? Sample scores will not return.")) { save(K.scores, []); save(K.seeded, true); go("dashboard"); } return; }
-    if (act === "clearAll") { if (confirm("Reset everything \u2014 scores, current session, and name?")) { del(K.scores); del(K.session); del(K.name); del(K.seeded); seedScores(); state.build = { source: "jpt", category: "struct", mode: "normal" }; go("dashboard"); } return; }
+    if (act === "clearScores") { if (confirm("Clear all score history?")) { save(K.scores, []); go("dashboard"); } return; }
+    if (act === "clearAll") { if (confirm("Reset everything \u2014 scores, current session, and name?")) { del(K.scores); del(K.session); del(K.name); state.build = { source: "jpt", category: "struct", mode: "normal" }; go("dashboard"); } return; }
   });
 
   function go(route) { state.route = route; location.hash = "#/" + route; render(); }
@@ -553,7 +544,8 @@
   window.addEventListener("hashchange", function () { routeFromHash(); render(); });
 
   /* ============================== INIT ============================= */
-  seedScores();
+  var sess = getSession();
+  if (sess && sess.source) buildQuestionBank(sess.source.id);
   routeFromHash();
   render();
 })();
