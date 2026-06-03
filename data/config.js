@@ -1,5 +1,6 @@
 SOURCES = [
   { id: "toplab", name: "Toplab Review Center", items: 775 },
+  { id: "prevexams", name: "Previous Exams", items: 431 },
 ];
 
 CATEGORIES = [
@@ -10,6 +11,11 @@ CATEGORIES = [
   { id: "bldgutil", name: "Building Utilities", short: "Bldg Utilities" },
   { id: "bldgtech", name: "Building Technology", short: "Bldg Tech" },
   { id: "structural", name: "Structural Conceptualization", short: "Structural" },
+  { id: "theoryarch", name: "Theory of Architecture", short: "Theory" },
+  { id: "histarch", name: "History of Architecture", short: "History" },
+  { id: "philasian", name: "Philippine & Asian Architecture", short: "Phil & Asian" },
+  { id: "profpraclaw", name: "Professional Practice & Building Laws", short: "Prof Prac & Laws" },
+  { id: "interiors", name: "Architectural Interiors & Tropical Architecture", short: "Interiors" },
 ];
 
 MODES = [
