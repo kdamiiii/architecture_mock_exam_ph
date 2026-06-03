@@ -395,6 +395,7 @@
         '<div id="cards">' + cards + '</div>' +
         '<div class="pager-bar" style="margin-top:18px;">' + pager + '</div>' +
         '<div class="quiz-actions"><button class="btn btn-ghost" data-action="nav" data-route="dashboard">&lsaquo; Back to Dashboard</button>' +
+          '<button class="btn btn-ghost" data-action="downloadpdf" style="padding:12px 18px;">Download PDF</button>' +
           '<button class="btn btn-primary" data-action="retake">Retake Session <span class="arr">&rarr;</span></button></div>' +
       '</div></div></div>';
   }
@@ -404,6 +405,234 @@
     return h.replace(/data-action="page"/g, 'data-action="rpage"');
   }
   function fmtClock(sec) { if (sec == null) return "\u2014"; var m = Math.floor(sec / 60), r = sec % 60; return m + ":" + (r < 10 ? "0" : "") + r; }
+
+  /* ========================= PDF DOWNLOAD ============================ */
+  function loadJsPDF(cb) {
+    if (window.jspdf) { cb(); return; }
+    var sc = document.createElement("script");
+    sc.src = "vendor/jspdf.umd.min.js";
+    sc.onload = cb;
+    sc.onerror = function () { alert("Failed to load PDF library. Please check your internet connection."); };
+    document.head.appendChild(sc);
+  }
+
+  function generateResultsPDF() {
+    loadJsPDF(function () { buildAndSavePDF(); });
+  }
+
+  function buildAndSavePDF() {
+    var s = getSession();
+    if (!s || !s.finished || !s.result) return;
+    var r = s.result;
+    var pass = r.pct >= PASS_PCT;
+    var name = load(K.name, "Examinee");
+
+    var jsPDF = window.jspdf.jsPDF;
+    var doc = new jsPDF("p", "mm", "a4");
+    var pw = doc.internal.pageSize.getWidth();
+    var ph = doc.internal.pageSize.getHeight();
+    var ml = 15, mr = 15;
+    var usable = pw - ml - mr;
+    var y = 20;
+    var pageNum = 1;
+
+    function addPageFooter() {
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(150);
+      doc.text("Architecture Board Review Terminal", ml, ph - 8);
+      doc.text("Page " + pageNum, pw - mr, ph - 8, { align: "right" });
+    }
+
+    function checkPage(need) {
+      if (y + need > ph - 20) {
+        addPageFooter();
+        doc.addPage();
+        pageNum++;
+        y = 20;
+      }
+    }
+
+    // Header
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(10, 37, 64);
+    doc.text("Architecture Board Review", ml, y);
+    y += 7;
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(91, 107, 126);
+    doc.text("Exam Results", ml, y);
+
+    doc.setFontSize(9);
+    doc.text(name, pw - mr, 20, { align: "right" });
+    doc.text(new Date().toLocaleDateString("en-US", { weekday: "short", day: "numeric", month: "long", year: "numeric" }), pw - mr, 26, { align: "right" });
+    y += 6;
+
+    doc.setDrawColor(228, 231, 236);
+    doc.line(ml, y, pw - mr, y);
+    y += 8;
+
+    // Exam info
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(10, 37, 64);
+    doc.text("Category:", ml, y);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(50);
+    doc.text(s.category.name, ml + 22, y);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(10, 37, 64);
+    doc.text("Source:", 110, y);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(50);
+    doc.text(s.source.name, 126, y);
+    y += 5;
+
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(10, 37, 64);
+    doc.text("Mode:", ml, y);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(50);
+    doc.text(s.mode.name, ml + 22, y);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(10, 37, 64);
+    doc.text("Time:", 110, y);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(50);
+    doc.text(fmtClock(s.elapsedSec), 126, y);
+    y += 10;
+
+    // Score box
+    doc.setFillColor(pass ? 31 : 155, pass ? 107 : 44, pass ? 74 : 44);
+    doc.roundedRect(ml, y, usable, 18, 2, 2, "F");
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(255);
+    doc.text(r.correct + " / " + r.total + "  (" + r.pct + "%)", ml + 8, y + 11);
+    doc.setFontSize(11);
+    doc.text(pass ? "PASSED" : "BELOW 70%", pw - mr - 8, y + 11, { align: "right" });
+    y += 24;
+
+    // Breakdown
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(91, 107, 126);
+    var breakdown = "Correct: " + r.correct + "   |   Incorrect: " + r.wrong + "   |   Unanswered: " + r.blank;
+    doc.text(breakdown, ml, y);
+    if (s.mode.id === "rw") {
+      doc.text("Net: " + (r.net >= 0 ? "+" : "") + r.net, pw - mr, y, { align: "right" });
+    }
+    y += 10;
+
+    doc.setDrawColor(228, 231, 236);
+    doc.line(ml, y, pw - mr, y);
+    y += 8;
+
+    // Questions heading
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(10, 37, 64);
+    doc.text("Questions & Answers", ml, y);
+    y += 8;
+
+    // Each question
+    s.qIds.forEach(function (id, idx) {
+      var q = qById(id);
+      if (!q) return;
+      var sel = s.answers[id];
+      var status = sel == null ? "UNANSWERED" : (sel === q.answer ? "CORRECT" : "INCORRECT");
+
+      doc.setFontSize(10);
+      var qLines = doc.splitTextToSize(q.q, usable - 8);
+      var optHeight = 0;
+      q.options.forEach(function (o) {
+        doc.setFontSize(9);
+        var ol = doc.splitTextToSize(LETTERS[0] + ". " + o + " (Correct Answer)", usable - 16);
+        optHeight += ol.length * 3.8 + 1.5;
+      });
+      var explHeight = (q.explain && q.explain.length) ? 12 : 0;
+      var needed = 10 + qLines.length * 4.2 + optHeight + explHeight + 10;
+      checkPage(Math.min(needed, 55));
+
+      // Question number + category + status
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(10, 37, 64);
+      doc.text((idx + 1) + ".", ml, y);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(91, 107, 126);
+      doc.text(catById(q.cat).short, ml + 8, y);
+
+      if (status === "CORRECT") doc.setTextColor(31, 107, 74);
+      else if (status === "INCORRECT") doc.setTextColor(155, 44, 44);
+      else doc.setTextColor(120);
+      doc.setFont("helvetica", "bold");
+      doc.text(status, pw - mr, y, { align: "right" });
+      y += 5;
+
+      // Question text
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(22, 32, 46);
+      doc.text(qLines, ml + 4, y);
+      y += qLines.length * 4.2 + 3;
+
+      // Options
+      doc.setFontSize(9);
+      q.options.forEach(function (o, oi) {
+        checkPage(8);
+        var isCorrect = oi === q.answer;
+        var isPick = oi === sel;
+        var marker = "";
+
+        if (isCorrect && isPick) {
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(31, 107, 74);
+          marker = " (Correct)";
+        } else if (isCorrect) {
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(31, 107, 74);
+          marker = " (Correct Answer)";
+        } else if (isPick) {
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(155, 44, 44);
+          marker = " (Your Answer)";
+        } else {
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(80);
+        }
+
+        var optText = LETTERS[oi] + ". " + o + marker;
+        var optLines = doc.splitTextToSize(optText, usable - 16);
+        doc.text(optLines, ml + 8, y);
+        y += optLines.length * 3.8 + 1.5;
+      });
+
+      // Explanation
+      if (q.explain && q.explain.length) {
+        checkPage(8);
+        y += 1;
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "italic");
+        doc.setTextColor(100);
+        var explLines = doc.splitTextToSize(q.explain, usable - 16);
+        doc.text(explLines, ml + 8, y);
+        y += explLines.length * 3.2 + 2;
+      }
+
+      y += 3;
+      checkPage(2);
+      doc.setDrawColor(238, 240, 243);
+      doc.line(ml + 4, y, pw - mr - 4, y);
+      y += 5;
+    });
+
+    addPageFooter();
+
+    var filename = "ABR_" + s.category.name.replace(/[^a-zA-Z0-9]/g, "_") + "_" + r.pct + "pct_" + new Date().toISOString().slice(0, 10) + ".pdf";
+    doc.save(filename);
+  }
 
   /* ============================ HISTORY ============================== */
   function viewHistory() {
@@ -580,6 +809,7 @@
       if (confirm(msg)) finishSession(false);
       return;
     }
+    if (act === "downloadpdf") { generateResultsPDF(); return; }
     if (act === "retake") {
       var rs = getSession();
       startSession(state.build.source || "toplab", (rs && rs.category.id) || state.build.category, (rs && rs.mode.id) || state.build.mode);
