@@ -1,14 +1,15 @@
 SOURCES = [
-  { id: "toplab", name: "Toplab Review Center", items: 54 },
+  { id: "toplab", name: "Toplab Review Center", items: 775 },
 ];
 
 CATEGORIES = [
-  { id: "struct", name: "Structural Conceptual Design", short: "Structural" },
-  { id: "hist",   name: "History & Theory",             short: "History" },
-  { id: "prac",   name: "Professional Practice",        short: "Practice" },
-  { id: "util",   name: "Building Utilities",           short: "Utilities" },
-  { id: "design", name: "Architectural Design",         short: "Design" },
-  { id: "mats",   name: "Building Materials",           short: "Materials" },
+  { id: "archdesign", name: "Architectural Design", short: "Arch Design" },
+  { id: "profprac", name: "Professional Practice", short: "Prof Practice" },
+  { id: "bldglaws", name: "Building Laws", short: "Bldg Laws" },
+  { id: "hoatapp", name: "History of Architecture & TAPP", short: "HOA & TAPP" },
+  { id: "bldgutil", name: "Building Utilities", short: "Bldg Utilities" },
+  { id: "bldgtech", name: "Building Technology", short: "Bldg Tech" },
+  { id: "structural", name: "Structural Conceptualization", short: "Structural" },
 ];
 
 MODES = [

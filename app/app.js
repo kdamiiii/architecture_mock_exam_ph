@@ -8,8 +8,12 @@
   var PER_PAGE = 15;
   function sessionLen() {
     var sq = QUESTIONS[state.build.source] || {};
-    var qs = sq[state.build.category] || [];
-    return qs.length;
+    if (state.build.category === "all") {
+      var total = 0;
+      for (var k in sq) if (sq.hasOwnProperty(k)) total += sq[k].length;
+      return total;
+    }
+    return (sq[state.build.category] || []).length;
   }
   var TIMED_OPTIONS = [
     { id: "30", label: "30 min", seconds: 30 * 60 },
@@ -38,20 +42,40 @@
     loadedSource = sourceId;
   }
 
+  function applyOverrides() {
+    var ov = load("abr_overrides", {});
+    for (var src in QUESTIONS) {
+      if (!QUESTIONS.hasOwnProperty(src)) continue;
+      for (var cat in QUESTIONS[src]) {
+        if (!QUESTIONS[src].hasOwnProperty(cat)) continue;
+        QUESTIONS[src][cat].forEach(function (q) { if (ov.hasOwnProperty(q.id)) q.answer = ov[q.id]; });
+      }
+    }
+    loadedSource = null;
+  }
+
+  function copyText(text) {
+    var ta = document.createElement("textarea");
+    ta.value = text; ta.style.cssText = "position:fixed;left:-9999px";
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); } catch (e) {}
+    document.body.removeChild(ta);
+  }
+
   /* ----------------------------- storage ------------------------------- */
   function load(key, fb) { try { var v = localStorage.getItem(key); return v == null ? fb : JSON.parse(v); } catch (e) { return fb; } }
   function save(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {} }
   function del(key) { try { localStorage.removeItem(key); } catch (e) {} }
 
   function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
-  function catById(id) { for (var i = 0; i < CATEGORIES.length; i++) if (CATEGORIES[i].id === id) return CATEGORIES[i]; return { name: id, short: id }; }
+  function catById(id) { if (id === "all") return { id: "all", name: "All Subjects", short: "All" }; for (var i = 0; i < CATEGORIES.length; i++) if (CATEGORIES[i].id === id) return CATEGORIES[i]; return { name: id, short: id }; }
   function modeById(id) { for (var i = 0; i < MODES.length; i++) if (MODES[i].id === id) return MODES[i]; return MODES[0]; }
   function qById(id) { for (var i = 0; i < QUESTION_BANK.length; i++) if (QUESTION_BANK[i].id === id) return QUESTION_BANK[i]; return null; }
 
   /* ------------------------------ state -------------------------------- */
   var state = {
     route: "dashboard",
-    build: { source: "toplab", category: "struct", mode: "normal", timedDuration: "45" },
+    build: { source: "toplab", category: "archdesign", mode: "normal", timedDuration: "45" },
     resultsPage: 0
   };
   var timerHandle = null;
@@ -61,8 +85,8 @@
   /* ------------------------- session lifecycle ------------------------- */
   function startSession(sourceId, catId, modeId) {
     buildQuestionBank(sourceId);
-    var catQuestions = QUESTION_BANK.filter(function (q) { return q.cat === catId; });
-    var ids = shuffle(catQuestions.map(function (q) { return q.id; }));
+    var pool = catId === "all" ? QUESTION_BANK : QUESTION_BANK.filter(function (q) { return q.cat === catId; });
+    var ids = shuffle(pool.map(function (q) { return q.id; }));
     var sess = {
       source: { id: sourceId, name: (function () { for (var i = 0; i < SOURCES.length; i++) if (SOURCES[i].id === sourceId) return SOURCES[i].name; return sourceId; })() },
       category: { id: catId, name: catById(catId).name },
@@ -122,7 +146,13 @@
   }
   function weakAreas() {
     var s = load(K.scores, []), map = {};
-    s.forEach(function (r) { if (!map[r.category]) map[r.category] = { sum: 0, n: 0 }; map[r.category].sum += r.pct; map[r.category].n++; });
+    s.forEach(function (r) {
+      if (r.category === "all") {
+        CATEGORIES.forEach(function (c) { if (!map[c.id]) map[c.id] = { sum: 0, n: 0 }; map[c.id].sum += r.pct; map[c.id].n++; });
+      } else {
+        if (!map[r.category]) map[r.category] = { sum: 0, n: 0 }; map[r.category].sum += r.pct; map[r.category].n++;
+      }
+    });
     return CATEGORIES.map(function (c) {
       var m = map[c.id];
       return { id: c.id, name: c.name, attempts: m ? m.n : 0, avg: m ? Math.round(m.sum / m.n) : null };
@@ -136,7 +166,8 @@
     session: '<svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="2.5" width="12" height="11" rx="1"/><path d="M6 7l3 1.8L6 10.6z" fill="currentColor" stroke="none"/></svg>',
     history: '<svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M8 4.6V8l2.4 1.5" stroke-linecap="round"/></svg>',
     weak: '<svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><line x1="2.5" y1="13.5" x2="13.5" y2="13.5"/><rect x="3" y="8" width="2.4" height="4"/><rect x="6.8" y="5" width="2.4" height="7"/><rect x="10.6" y="9.5" width="2.4" height="2.5"/></svg>',
-    settings: '<svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><line x1="2.5" y1="5" x2="13.5" y2="5"/><line x1="2.5" y1="11" x2="13.5" y2="11"/><circle cx="6" cy="5" r="1.7" fill="var(--navy)"/><circle cx="10" cy="11" r="1.7" fill="var(--navy)"/></svg>'
+    settings: '<svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><line x1="2.5" y1="5" x2="13.5" y2="5"/><line x1="2.5" y1="11" x2="13.5" y2="11"/><circle cx="6" cy="5" r="1.7" fill="var(--navy)"/><circle cx="10" cy="11" r="1.7" fill="var(--navy)"/></svg>',
+    dev: '<svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M9.5 2.5l4 4-7 7H2.5v-4z"/><path d="M8 4l4 4"/></svg>'
   };
 
   /* ============================ SHELL ================================= */
@@ -144,7 +175,8 @@
     { id: "dashboard", label: "New Session", icon: "session" },
     { id: "history", label: "Score History", icon: "history" },
     { id: "weak", label: "Weak Areas", icon: "weak" },
-    { id: "settings", label: "Settings", icon: "settings" }
+    { id: "settings", label: "Settings", icon: "settings" },
+    { id: "dev", label: "Answer Editor", icon: "dev" }
   ];
 
   function shell() {
@@ -190,9 +222,10 @@
 
     var srcQuestions = QUESTIONS[b.source] || {};
     var availCats = CATEGORIES.filter(function (c) { return srcQuestions[c.id] && srcQuestions[c.id].length; });
-    var cats = availCats.map(function (c) {
-      return '<button class="chip' + (b.category === c.id ? " on" : "") + '" data-action="pick" data-field="category" data-val="' + c.id + '">' + esc(c.name) + '</button>';
-    }).join("");
+    var cats = (availCats.length > 1 ? '<button class="chip' + (b.category === "all" ? " on" : "") + '" data-action="pick" data-field="category" data-val="all">All</button>' : '') +
+      availCats.map(function (c) {
+        return '<button class="chip' + (b.category === c.id ? " on" : "") + '" data-action="pick" data-field="category" data-val="' + c.id + '">' + esc(c.name) + '</button>';
+      }).join("");
 
     var modes = MODES.map(function (m) {
       return '<button class="tile' + (b.mode === m.id ? " on" : "") + '" data-action="pick" data-field="mode" data-val="' + m.id + '">' +
@@ -407,6 +440,51 @@
       '<div class="page-body"><p class="section-label">Focus your next session where it counts most.</p>' + rows + '</div></div>';
   }
 
+  /* ============================ DEV MODE =========================== */
+  function viewDev() {
+    var overrides = load("abr_overrides", {});
+    var activeCat = state.devCat || CATEGORIES[0].id;
+    var srcQ = QUESTIONS[state.build.source] || {};
+
+    var totalFilled = 0, totalQs = 0;
+    CATEGORIES.forEach(function (c) {
+      var cqs = srcQ[c.id] || [];
+      totalQs += cqs.length;
+      cqs.forEach(function (q) { if (q.answer != null) totalFilled++; });
+    });
+
+    var tabs = CATEGORIES.map(function (c) {
+      var cqs = srcQ[c.id] || [];
+      var filled = cqs.filter(function (q) { return q.answer != null; }).length;
+      return '<button class="chip' + (activeCat === c.id ? " on" : "") + '" data-action="devcat" data-val="' + c.id + '">' +
+        esc(c.short) + ' <small>' + filled + '/' + cqs.length + '</small></button>';
+    }).join("");
+
+    var qs = srcQ[activeCat] || [];
+    var cards = qs.map(function (q) {
+      var opts = q.options.map(function (o, oi) {
+        return '<button class="opt' + (q.answer === oi ? " sel" : "") + '" data-action="devans" data-q="' + q.id + '" data-opt="' + oi + '">' +
+          '<span class="ltr">' + LETTERS[oi] + '</span><span>' + esc(o) + '</span></button>';
+      }).join("");
+      return '<div class="qcard' + (q.answer != null ? " answered" : "") + '" id="dev-' + q.id + '"><div class="rule"></div><div class="qbody">' +
+        '<div class="q-head"><span class="q-no">' + q.id + '</span></div>' +
+        '<div class="q-text">' + esc(q.q) + '</div><div class="opts">' + opts + '</div>' +
+        '</div></div>';
+    }).join("");
+
+    return '<div class="view">' +
+      '<div class="page-head"><div><div class="ph-title">Answer Editor <small style="font-weight:400;opacity:.5;">DEV</small></div>' +
+      '<div class="ph-sub">Tap an option to mark it as the correct answer. Tap again to clear.</div></div>' +
+      '<div class="ph-right" style="display:flex;gap:10px;">' +
+      '<button class="btn btn-ghost" data-action="devexport" style="padding:10px 16px;">Export</button>' +
+      '<button class="btn btn-danger" data-action="devclear" style="padding:10px 16px;">Clear All</button></div></div>' +
+      '<div class="page-body">' +
+      '<div class="stat-strip"><div class="stat"><div class="klabel s-lab">Answers Set</div><div class="s-val">' + totalFilled + ' <small>/ ' + totalQs + '</small></div></div></div>' +
+      '<div class="chips" style="margin-bottom:18px;">' + tabs + '</div>' +
+      '<div id="cards">' + cards + '</div>' +
+      '</div></div>';
+  }
+
   /* ============================ SETTINGS ============================ */
   function viewSettings() {
     var name = load(K.name, "Examinee");
@@ -445,6 +523,7 @@
       case "history": html = viewHistory(); break;
       case "weak": html = viewWeak(); break;
       case "settings": html = viewSettings(); break;
+      case "dev": html = viewDev(); break;
       default: html = viewDashboard();
     }
     view.innerHTML = html;
@@ -512,6 +591,37 @@
       startSession(state.build.source, cat, state.build.mode);
       return;
     }
+    if (act === "devcat") { state.devCat = t.getAttribute("data-val"); render(); return; }
+    if (act === "devans") {
+      var qid = t.getAttribute("data-q"), opt = parseInt(t.getAttribute("data-opt"), 10);
+      var ov = load("abr_overrides", {});
+      if (ov[qid] === opt) delete ov[qid]; else ov[qid] = opt;
+      save("abr_overrides", ov);
+      applyOverrides();
+      var card = document.getElementById("dev-" + qid);
+      if (card) {
+        card.classList.toggle("answered", ov[qid] != null);
+        card.querySelectorAll(".opt").forEach(function (o, i) { o.classList.toggle("sel", ov[qid] === i); });
+      }
+      return;
+    }
+    if (act === "devexport") {
+      var ov = load("abr_overrides", {});
+      var count = Object.keys(ov).length;
+      if (!count) { alert("No answers set yet."); return; }
+      var json = JSON.stringify(ov, null, 2);
+      copyText(json);
+      console.log("=== ANSWER OVERRIDES ===\n" + json);
+      var summary = [];
+      CATEGORIES.forEach(function (c) {
+        var cqs = (QUESTIONS[state.build.source] || {})[c.id] || [];
+        var n = cqs.filter(function (q) { return ov[q.id] != null; }).length;
+        if (n) summary.push(c.short + ": " + n + "/" + cqs.length);
+      });
+      alert("Copied " + count + " answers to clipboard (JSON).\nAlso logged to browser console (F12).\n\n" + summary.join("\n"));
+      return;
+    }
+    if (act === "devclear") { if (confirm("Clear all saved answer overrides?")) { save("abr_overrides", {}); applyOverrides(); render(); } return; }
     if (act === "saveName") {
       var inp = document.getElementById("nameInput"); var v = (inp.value || "").trim() || "Examinee";
       save(K.name, v); var who = document.querySelector(".sb-foot .who"); if (who) who.textContent = v;
@@ -519,7 +629,7 @@
       return;
     }
     if (act === "clearScores") { if (confirm("Clear all score history?")) { save(K.scores, []); go("dashboard"); } return; }
-    if (act === "clearAll") { if (confirm("Reset everything \u2014 scores, current session, and name?")) { del(K.scores); del(K.session); del(K.name); state.build = { source: "toplab", category: "struct", mode: "normal", timedDuration: "45" }; go("dashboard"); } return; }
+    if (act === "clearAll") { if (confirm("Reset everything \u2014 scores, current session, and name?")) { del(K.scores); del(K.session); del(K.name); state.build = { source: "toplab", category: "archdesign", mode: "normal", timedDuration: "45" }; go("dashboard"); } return; }
   });
 
   function go(route) { state.route = route; location.hash = "#/" + route; render(); }
@@ -552,7 +662,7 @@
   /* ============================ ROUTING ============================ */
   function routeFromHash() {
     var h = (location.hash || "").replace(/^#\/?/, "");
-    var valid = { dashboard: 1, quiz: 1, results: 1, history: 1, weak: 1, settings: 1 };
+    var valid = { dashboard: 1, quiz: 1, results: 1, history: 1, weak: 1, settings: 1, dev: 1 };
     if (!valid[h]) h = "dashboard";
     // guard: quiz/results need a session
     var s = getSession();
@@ -563,6 +673,7 @@
   window.addEventListener("hashchange", function () { routeFromHash(); render(); });
 
   /* ============================== INIT ============================= */
+  applyOverrides();
   var sess = getSession();
   if (sess && sess.source) buildQuestionBank(sess.source.id);
   routeFromHash();
