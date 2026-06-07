@@ -1,6 +1,7 @@
 SOURCES = [
   { id: "toplab", name: "Toplab Review Center", items: 775 },
   { id: "prevexams", name: "Previous Exams", items: 431 },
+  { id: "mockexam", name: "Mock Exam", items: 199 },
 ];
 
 CATEGORIES = [
@@ -16,6 +17,9 @@ CATEGORIES = [
   { id: "philasian", name: "Philippine & Asian Architecture", short: "Phil & Asian" },
   { id: "profpraclaw", name: "Professional Practice & Building Laws", short: "Prof Prac & Laws" },
   { id: "interiors", name: "Architectural Interiors & Tropical Architecture", short: "Interiors" },
+  { id: "mockpart1", name: "Part 1 - History, Planning & Practice", short: "Mock P1" },
+  { id: "mockpart2", name: "Part 2 - Structural, Materials & Utilities", short: "Mock P2" },
+  { id: "mockpart3", name: "Part 3 - Design & Site Planning", short: "Mock P3" },
 ];
 
 MODES = [

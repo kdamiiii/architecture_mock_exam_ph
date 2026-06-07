@@ -82,11 +82,45 @@
 
   function shuffle(a) { a = a.slice(); for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
 
+  /* ----------- group-aware shuffle for shared questions ----------- */
+  function shuffleWithGroups(pool) {
+    // Separate normal vs shared/grouped questions
+    var normal = [];
+    var groupMap = {}; // group key -> array of question ids (in original order)
+    pool.forEach(function (q) {
+      if (q.type === "shared" && q.group) {
+        if (!groupMap[q.group]) groupMap[q.group] = [];
+        groupMap[q.group].push(q.id);
+      } else {
+        normal.push(q.id);
+      }
+    });
+
+    // If no groups, just do a normal shuffle
+    var groupKeys = Object.keys(groupMap);
+    if (!groupKeys.length) return shuffle(pool.map(function (q) { return q.id; }));
+
+    // Build "slots": each slot is either a single normal id or a group array
+    var slots = [];
+    normal.forEach(function (id) { slots.push([id]); });
+    groupKeys.forEach(function (key) { slots.push(groupMap[key]); });
+
+    // Shuffle the slots (groups stay intact, their internal order preserved)
+    slots = shuffle(slots);
+
+    // Flatten
+    var result = [];
+    slots.forEach(function (slot) {
+      slot.forEach(function (id) { result.push(id); });
+    });
+    return result;
+  }
+
   /* ------------------------- session lifecycle ------------------------- */
   function startSession(sourceId, catId, modeId) {
     buildQuestionBank(sourceId);
     var pool = catId === "all" ? QUESTION_BANK : QUESTION_BANK.filter(function (q) { return q.cat === catId; });
-    var ids = shuffle(pool.map(function (q) { return q.id; }));
+    var ids = shuffleWithGroups(pool);
     var sess = {
       source: { id: sourceId, name: (function () { for (var i = 0; i < SOURCES.length; i++) if (SOURCES[i].id === sourceId) return SOURCES[i].name; return sourceId; })() },
       category: { id: catId, name: catById(catId).name },
@@ -108,7 +142,7 @@
     var correct = 0, wrong = 0, blank = 0;
     s.qIds.forEach(function (id) {
       var q = qById(id), a = s.answers[id];
-      if (a == null) blank++;
+      if (!q || a == null) blank++;
       else if (a === q.answer) correct++;
       else wrong++;
     });
@@ -277,7 +311,8 @@
     var answered = Object.keys(s.answers).length;
 
     var cards = pageIds.map(function (id, k) {
-      var q = qById(id), no = startIdx + k + 1, sel = s.answers[id], open = !!s.revealed[id];
+      var q = qById(id); if (!q) return '';
+      var no = startIdx + k + 1, sel = s.answers[id], open = !!s.revealed[id];
       var opts = q.options.map(function (o, oi) {
         return '<button class="opt' + (sel === oi ? " sel" : "") + '" data-action="answer" data-q="' + id + '" data-opt="' + oi + '">' +
           '<span class="ltr">' + LETTERS[oi] + '</span><span>' + esc(o) + '</span></button>';
@@ -350,7 +385,8 @@
     var pageIds = s.qIds.slice(startIdx, startIdx + PER_PAGE);
 
     var cards = pageIds.map(function (id, k) {
-      var q = qById(id), no = startIdx + k + 1, sel = s.answers[id], open = !!s.revealed[id];
+      var q = qById(id); if (!q) return '';
+      var no = startIdx + k + 1, sel = s.answers[id], open = !!s.revealed[id];
       var status = sel == null ? "blank" : (sel === q.answer ? "correct" : "wrong");
       var badge = status === "correct" ? '<span class="res-badge c">Correct</span>' :
                   status === "wrong" ? '<span class="res-badge w">Incorrect</span>' :
@@ -881,7 +917,7 @@
     var body = card.querySelector(".qbody");
     var existing = body.querySelector(".expl");
     if (open && !existing) {
-      var q = qById(id);
+      var q = qById(id); if (!q) return;
       var div = document.createElement("div");
       div.className = "expl";
       div.innerHTML = '<div class="ans">Answer &middot; ' + LETTERS[q.answer] + ' &mdash; ' + esc(q.options[q.answer]) + '</div><p>' + esc(q.explain) + '</p>';
